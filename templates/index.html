@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organigrama</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .node-box {
+            stroke: #333;
+            stroke-width: 1px;
+        }
+        .node-person-box {
+            fill: #333;
+            stroke: #333;
+        }
+        .node-title {
+            font-size: 12px;
+            font-weight: bold;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            fill: #000; /* Color del texto */
+        }
+        .link {
+            fill: none;
+            stroke: #333;
+            stroke-width: 1px;
+        }
+        .person-icon {
+            fill: #fff;
+        }
+        .text-wrap {
+            white-space: normal !important; /* Permitir que el texto se ajuste */
+            word-wrap: break-word; /* Romper palabras largas */
+        }
+        .node-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+        }
+        .node-actions button {
+            font-size: 10px;
+            padding: 2px 5px;
+        }
+        .organigrama-card {
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+        .organigrama-card:hover {
+            transform: scale(1.03);
+        }
+
+        /* Ocultar botones al imprimir */
+        @media print {
+            .node-actions, .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Menú de navegación -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Organigrama</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link active" aria-current="page" href="#" onclick="mostrarListaOrganigramas()">Inicio</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#modalCrearOrganigrama">Crear Organigrama</a>
+                    </li>
+                    <li class="nav-item" id="menuAgregarNodo" style="display: none;">
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#modalCrearNodo" onclick="cargarNodos()">Agregar Nodo</a>
+                    </li>
+                    <li class="nav-item" id="menuVerOrganigrama" style="display: none;">
+                        <a class="nav-link" href="#" onclick="dibujarOrganigrama()">Ver Organigrama</a>
+                    </li>
+                    <li class="nav-item" id="menuImprimir" style="display: none;">
+                        <a class="nav-link" href="#" onclick="window.print()">Imprimir</a>
+                    </li>
+                    <li class="nav-item" id="menuVolverLista" style="display: none;">
+                        <a class="nav-link" href="#" onclick="mostrarListaOrganigramas()">Volver a Lista</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Contenido principal -->
+    <div class="container mt-5">
+        <!-- Vista de lista de organigramas -->
+        <div id="listaOrganigramas">
+            <h1 class="text-center mb-4">Mis Organigramas</h1>
+            <div class="row" id="contenedorOrganigramas">
+                <!-- Aquí se cargarán dinámicamente los organigramas -->
+            </div>
+        </div>
+
+        <!-- Vista de organigrama individual -->
+        <div id="vistaOrganigrama" style="display: none;">
+            <h1 class="text-center" id="tituloOrganigrama">Organigrama</h1>
+            <div id="organigrama" class="mt-3 d-flex justify-content-center"></div>
+        </div>
+    </div>
+
+    <!-- Modal para crear organigrama -->
+    <div class="modal fade" id="modalCrearOrganigrama" tabindex="-1" aria-labelledby="modalCrearOrganigramaLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalCrearOrganigramaLabel">Crear Organigrama</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formCrearOrganigrama">
+                        <div class="mb-3">
+                            <label for="nombreOrganigrama" class="form-label">Nombre del organigrama</label>
+                            <input type="text" class="form-control" id="nombreOrganigrama" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="descripcionOrganigrama" class="form-label">Descripción (opcional)</label>
+                            <textarea class="form-control" id="descripcionOrganigrama" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="crearOrganigrama()">Crear</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para editar organigrama -->
+    <div class="modal fade" id="modalEditarOrganigrama" tabindex="-1" aria-labelledby="modalEditarOrganigramaLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalEditarOrganigramaLabel">Editar Organigrama</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formEditarOrganigrama">
+                        <div class="mb-3">
+                            <label for="nombreOrganigramaEditar" class="form-label">Nombre del organigrama</label>
+                            <input type="text" class="form-control" id="nombreOrganigramaEditar" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="descripcionOrganigramaEditar" class="form-label">Descripción (opcional)</label>
+                            <textarea class="form-control" id="descripcionOrganigramaEditar" rows="3"></textarea>
+                        </div>
+                        <input type="hidden" id="idOrganigramaEditar">
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarEdicionOrganigrama()">Guardar Cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para crear nodo -->
+    <div class="modal fade" id="modalCrearNodo" tabindex="-1" aria-labelledby="modalCrearNodoLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalCrearNodoLabel">Crear Nodo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formCrearNodo">
+                        <div class="mb-3">
+                            <label for="nombre" class="form-label">Nombre del nodo</label>
+                            <input type="text" class="form-control" id="nombre" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="color" class="form-label">Color del nodo</label>
+                            <input type="color" class="form-control" id="color" value="#000000">
+                        </div>
+                        <div class="mb-3">
+                            <label for="nodo_padre" class="form-label">Nodo padre</label>
+                            <select class="form-control" id="nodo_padre">
+                                <option value="">Nodo raíz</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="agregarNodo()">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para editar nodo -->
+    <div class="modal fade" id="modalEditarNodo" tabindex="-1" aria-labelledby="modalEditarNodoLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalEditarNodoLabel">Editar Nodo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formEditarNodo">
+                        <div class="mb-3">
+                            <label for="nombre_editar" class="form-label">Nombre del nodo</label>
+                            <input type="text" class="form-control" id="nombre_editar" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="color_editar" class="form-label">Color del nodo</label>
+                            <input type="color" class="form-control" id="color_editar" value="#000000">
+                        </div>
+                        <div class="mb-3">
+                            <label for="nodo_padre_editar" class="form-label">Nodo padre</label>
+                            <select class="form-control" id="nodo_padre_editar">
+                                <option value="">Nodo raíz</option>
+                            </select>
+                        </div>
+                        <input type="hidden" id="id_editar">
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarEdicion()">Guardar Cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Variable global para almacenar el ID del organigrama actual
+        let organigramaActualId = null;
+        let nodoActual = null; // Variable para almacenar el nodo que se está editando
+
+        // Función para mostrar la lista de organigramas
+        function mostrarListaOrganigramas() {
+            // Ocultar vista de organigrama y mostrar lista
+            document.getElementById('vistaOrganigrama').style.display = 'none';
+            document.getElementById('listaOrganigramas').style.display = 'block';
+            
+            // Actualizar menú
+            document.getElementById('menuAgregarNodo').style.display = 'none';
+            document.getElementById('menuVerOrganigrama').style.display = 'none';
+            document.getElementById('menuImprimir').style.display = 'none';
+            document.getElementById('menuVolverLista').style.display = 'none';
+            
+            // Cargar organigramas
+            cargarOrganigramas();
+        }
+
+        // Función para cargar la lista de organigramas
+        function cargarOrganigramas() {
+            fetch('/get_organigramas')
+                .then(response => response.json())
+                .then(organigramas => {
+                    const contenedor = document.getElementById('contenedorOrganigramas');
+                    contenedor.innerHTML = '';
+                    
+                    if (organigramas.length === 0) {
+                        contenedor.innerHTML = '<div class="col-12 text-center"><p>No hay organigramas creados. ¡Crea tu primer organigrama!</p></div>';
+                        return;
+                    }
+                    
+                    organigramas.forEach(org => {
+                        const fecha = new Date(org.fecha_creacion);
+                        const fechaFormateada = fecha.toLocaleDateString();
+                        
+                        const card = document.createElement('div');
+                        card.className = 'col-md-4 mb-4';
+                        card.innerHTML = `
+                            <div class="card organigrama-card">
+                                <div class="card-body">
+                                    <h5 class="card-title">${org.nombre}</h5>
+                                    <p class="card-text">${org.descripcion || 'Sin descripción'}</p>
+                                    <p class="card-text"><small class="text-muted">Creado: ${fechaFormateada}</small></p>
+                                </div>
+                                <div class="card-footer d-flex justify-content-between">
+                                    <button class="btn btn-primary btn-sm" onclick="abrirOrganigrama(${org.id}, '${org.nombre}')">Abrir</button>
+                                    <div>
+                                        <button class="btn btn-warning btn-sm" onclick="editarOrganigrama(${org.id})">Editar</button>
+                                        <button class="btn btn-danger btn-sm" onclick="eliminarOrganigrama(${org.id})">Eliminar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        contenedor.appendChild(card);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error al cargar organigramas:', error);
+                    document.getElementById('contenedorOrganigramas').innerHTML = 
+                        '<div class="col-12 text-center"><p>Error al cargar organigramas. Intente nuevamente.</p></div>';
+                });
+        }
+
+        // Función para crear un nuevo organigrama
+        function crearOrganigrama() {
+            const nombre = document.getElementById('nombreOrganigrama').value;
+            if (!nombre) {
+                alert('Por favor, ingrese un nombre para el organigrama');
+                return;
+            }
+            
+            const descripcion = document.getElementById('descripcionOrganigrama').value;
+            
+            fetch('/add_organigrama', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({nombre, descripcion})
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Cerrar el modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalCrearOrganigrama'));
+                modal.hide();
+                
+                // Limpiar el formulario
+                document.getElementById('formCrearOrganigrama').reset();
+                
+                // Abrir el nuevo organigrama
+                abrirOrganigrama(data.id, nombre);
+            })
+            .catch(error => {
+                console.error('Error al crear organigrama:', error);
+                alert('Error al crear organigrama. Intente nuevamente.');
+            });
+        }
+
+        // Función para abrir un organigrama
+        function abrirOrganigrama(id, nombre) {
+            organigramaActualId = id;
+            
+            // Actualizar título
+            document.getElementById('tituloOrganigrama').textContent = nombre;
+            
+            // Mostrar vista de organigrama y ocultar lista
+            document.getElementById('listaOrganigramas').style.display = 'none';
+            document.getElementById('vistaOrganigrama').style.display = 'block';
+            
+            // Actualizar menú
+            document.getElementById('menuAgregarNodo').style.display = 'block';
+            document.getElementById('menuVerOrganigrama').style.display = 'block';
+            document.getElementById('menuImprimir').style.display = 'block';
+            document.getElementById('menuVolverLista').style.display = 'block';
+            
+            // Dibujar organigrama
+            dibujarOrganigrama();
+        }
+
+        // Función para editar un organigrama
+        function editarOrganigrama(id) {
+            fetch(`/get_organigrama/${id}`)
+                .then(response => response.json())
+                .then(organigrama => {
+                    document.getElementById('nombreOrganigramaEditar').value = organigrama.nombre;
+                    document.getElementById('descripcionOrganigramaEditar').value = organigrama.descripcion || '';
+                    document.getElementById('idOrganigramaEditar').value = organigrama.id;
+                    
+                    // Mostrar el modal de edición
+                    const modalEditar = new bootstrap.Modal(document.getElementById('modalEditarOrganigrama'));
+                    modalEditar.show();
+                })
+                .catch(error => {
+                    console.error('Error al obtener organigrama:', error);
+                    alert('Error al cargar datos del organigrama. Intente nuevamente.');
+                });
+        }
+
+        // Función para guardar la edición de un organigrama
+        function guardarEdicionOrganigrama() {
+            const id = document.getElementById('idOrganigramaEditar').value;
+            const nombre = document.getElementById('nombreOrganigramaEditar').value;
+            const descripcion = document.getElementById('descripcionOrganigramaEditar').value;
+            
+            if (!nombre) {
+                alert('Por favor, ingrese un nombre para el organigrama');
+                return;
+            }
+            
+            fetch(`/edit_organigrama/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({nombre, descripcion})
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Cerrar el modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('modalEditarOrganigrama'));
+                    modal.hide();
+                    
+                    // Si estamos viendo este organigrama, actualizar el título
+                    if (organigramaActualId == id) {
+                        document.getElementById('tituloOrganigrama').textContent = nombre;
+                    }
+                    
+                    // Recargar la lista de organigramas
+                    cargarOrganigramas();
+                }
+            })
+            .catch(error => {
+                console.error('Error al editar organigrama:', error);
+                alert('Error al editar organigrama. Intente nuevamente.');
+            });
+        }
+
+        // Función para eliminar un organigrama
+        function eliminarOrganigrama(id) {
+            if (confirm('¿Estás seguro de que deseas eliminar este organigrama? Se eliminarán todos los nodos asociados.')) {
+                fetch(`/delete_organigrama/${id}`, {
+                    method: 'DELETE'
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // Si estamos viendo este organigrama, volver a la lista
+                        if (organigramaActualId == id) {
+                            mostrarListaOrganigramas();
+                        } else {
+                            // Solo recargar la lista
+                            cargarOrganigramas();
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al eliminar organigrama:', error);
+                    alert('Error al eliminar organigrama. Intente nuevamente.');
+                });
+            }
+        }
+
+        function cargarNodos() {
+            if (!organigramaActualId) {
+                alert('Por favor, seleccione un organigrama primero');
+                return;
+            }
+            
+            fetch(`/get_nodos/${organigramaActualId}`)
+                .then(response => response.json())
+                .then(data => {
+                    let selectCrear = document.getElementById('nodo_padre');
+                    let selectEditar = document.getElementById('nodo_padre_editar');
+                    selectCrear.innerHTML = '<option value="">Nodo raíz</option>';
+                    selectEditar.innerHTML = '<option value="">Nodo raíz</option>';
+                    data.forEach(nodo => {
+                        selectCrear.innerHTML += `<option value="${nodo.id}">${nodo.nombre}</option>`;
+                        selectEditar.innerHTML += `<option value="${nodo.id}">${nodo.nombre}</option>`;
+                    });
+                })
+                .catch(error => {
+                    console.error('Error al cargar nodos:', error);
+                    // Para pruebas sin backend:
+                    document.getElementById('nodo_padre').innerHTML = '<option value="">Nodo raíz</option>';
+                    document.getElementById('nodo_padre_editar').innerHTML = '<option value="">Nodo raíz</option>';
+                });
+        }
+
+        function agregarNodo() {
+            if (!organigramaActualId) {
+                alert('Por favor, seleccione un organigrama primero');
+                return;
+            }
+            
+            let nombre = document.getElementById('nombre').value;
+            if (!nombre) {
+                alert('Por favor, ingrese un nombre para el nodo');
+                return;
+            }
+            
+            let color = document.getElementById('color').value;
+            let nodo_padre = document.getElementById('nodo_padre').value || null;
+
+            fetch('/add_nodo', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    nombre, 
+                    color, 
+                    nodo_padre_id: nodo_padre,
+                    organigrama_id: organigramaActualId
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Cerrar el modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('modalCrearNodo'));
+                    modal.hide();
+                    // Limpiar el formulario
+                    document.getElementById('formCrearNodo').reset();
+                    // Redibujar el organigrama
+                    dibujarOrganigrama();
+                }
+            })
+            .catch(error => {
+                console.error('Error al agregar nodo:', error);
+                alert('Error al agregar nodo. Intente nuevamente.');
+            });
+        }
+
+        function editarNodo(id) {
+            fetch(`/get_nodo/${id}`)
+                .then(response => response.json())
+                .then(nodo => {
+                    nodoActual = nodo; // Guardar el nodo actual
+                    document.getElementById('nombre_editar').value = nodo.nombre;
+                    document.getElementById('color_editar').value = nodo.color;
+                    document.getElementById('nodo_padre_editar').value = nodo.nodo_padre_id || "";
+                    document.getElementById('id_editar').value = nodo.id;
+                    // Mostrar el modal de edición
+                    const modalEditar = new bootstrap.Modal(document.getElementById('modalEditarNodo'));
+                    modalEditar.show();
+                })
+                .catch(error => {
+                    console.error('Error al obtener nodo:', error);
+                    alert('Error al cargar datos del nodo. Intente nuevamente.');
+                });
+        }
+
+        function guardarEdicion() {
+            let id = document.getElementById('id_editar').value;
+            let nombre = document.getElementById('nombre_editar').value;
+            let color = document.getElementById('color_editar').value;
+            let nodo_padre = document.getElementById('nodo_padre_editar').value || null;
+
+            fetch(`/edit_nodo/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({nombre, color, nodo_padre_id: nodo_padre})
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Cerrar el modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('modalEditarNodo'));
+                    modal.hide();
+                    // Redibujar el organigrama
+                    dibujarOrganigrama();
+                }
+            })
+            .catch(error => {
+                console.error('Error al editar nodo:', error);
+                alert('Error al editar nodo. Intente nuevamente.');
+            });
+        }
+
+        function eliminarNodo(id) {
+            if (confirm('¿Estás seguro de que deseas eliminar este nodo?')) {
+                fetch(`/delete_nodo/${id}`, {
+                    method: 'DELETE'
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // Redibujar el organigrama
+                        dibujarOrganigrama();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al eliminar nodo:', error);
+                    alert('Error al eliminar nodo. Intente nuevamente.');
+                });
+            }
+        }
+
+        function dibujarOrganigrama() {
+            if (!organigramaActualId) {
+                alert('Por favor, seleccione un organigrama primero');
+                return;
+            }
+            
+            fetch(`/get_nodos/${organigramaActualId}`)
+                .then(response => response.json())
+                .then(nodos => {
+                    dibujarOrganigramaConDatos(nodos);
+                })
+                .catch(error => {
+                    console.error('Error al obtener nodos:', error);
+                    // Para pruebas sin backend:
+                    dibujarOrganigramaPrueba();
+                });
+        }
+        
+        function dibujarOrganigramaPrueba() {
+            // Datos de ejemplo para probar sin backend
+            const nodosPrueba = [
+                {id: 1, nombre: "Director General", color: "#FF0000", nodo_padre_id: null, organigrama_id: 1},
+                {id: 2, nombre: "Gerente de Operaciones", color: "#00FF00", nodo_padre_id: 1, organigrama_id: 1},
+                {id: 3, nombre: "Gerente de Ventas", color: "#0000FF", nodo_padre_id: 1, organigrama_id: 1},
+                {id: 4, nombre: "Supervisor de Logística", color: "#FFFF00", nodo_padre_id: 2, organigrama_id: 1},
+                {id: 5, nombre: "Supervisor de Producción", color: "#FF00FF", nodo_padre_id: 2, organigrama_id: 1},
+                {id: 6, nombre: "Supervisor de Marketing", color: "#00FFFF", nodo_padre_id: 3, organigrama_id: 1},
+                {id: 7, nombre: "Empleado de Almacén", color: "#FFA500", nodo_padre_id: 4, organigrama_id: 1},
+                {id: 8, nombre: "Empleado de Manufactura", color: "#800080", nodo_padre_id: 5, organigrama_id: 1},
+                {id: 9, nombre: "Empleado de Publicidad", color: "#008000", nodo_padre_id: 6, organigrama_id: 1}
+            ];
+            dibujarOrganigramaConDatos(nodosPrueba);
+        }
+        
+        function dibujarOrganigramaConDatos(nodos) {
+            // Creamos estructura de árbol
+            let data = {id: 0, nombre: "Raíz", children: []};
+            let mapaNodos = {};
+
+            // Creamos objetos para cada nodo
+            nodos.forEach(n => {
+                mapaNodos[n.id] = {
+                    id: n.id,
+                    nombre: n.nombre,
+                    color: n.color || "#000000",
+                    children: []
+                };
+            });
+
+            // Construimos la jerarquía
+            nodos.forEach(n => {
+                if (n.nodo_padre_id && mapaNodos[n.nodo_padre_id]) {
+                    mapaNodos[n.nodo_padre_id].children.push(mapaNodos[n.id]);
+                } else if (!n.nodo_padre_id) {
+                    data.children.push(mapaNodos[n.id]);
+                }
+            });
+
+            // Si no hay nodos, mostrar mensaje
+            if (nodos.length === 0) {
+                document.getElementById('organigrama').innerHTML = 
+                    '<div class="alert alert-info">No hay nodos en este organigrama. Agregue nodos usando el botón "Agregar Nodo".</div>';
+                return;
+            }
+
+            // Limpiamos el contenedor
+            d3.select("#organigrama").html("");
+
+            // Configuramos dimensiones
+            const width = 1200;
+            const height = 800;
+            
+            // Configuramos el tamaño de los nodos
+            const nodeWidth = 150; // Aumentamos el ancho para textos largos
+            const nodeHeight = 60; // Aumentamos la altura para textos largos
+            const nodeSpacingHorizontal = 40;
+            const nodeSpacingVertical = 80;
+            
+            // Creamos el SVG
+            const svg = d3.select("#organigrama")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .append("g")
+                .attr("transform", "translate(" + (width / 2) + ", 40)");
+
+            // Creamos la estructura jerárquica
+            const root = d3.hierarchy(data);
+            
+            // Configuramos el layout del árbol
+            const treeLayout = d3.tree()
+                .nodeSize([nodeWidth + nodeSpacingHorizontal, nodeHeight + nodeSpacingVertical])
+                .separation((a, b) => a.parent === b.parent ? 1.5 : 2);
+            
+            // Aplicamos el layout
+            treeLayout(root);
+            
+            // Obtenemos todos los nodos excepto el raíz (que es invisible)
+            const nodes = root.descendants().filter(d => d.data.id !== 0);
+            const links = root.links().filter(d => d.source.data.id !== 0);
+            
+            // Calculamos el desplazamiento para centrar
+            let minX = d3.min(nodes, d => d.x);
+            let maxX = d3.max(nodes, d => d.x);
+            const offsetX = -1 * (maxX + minX) / 2;
+            
+            // Dibujamos las conexiones (líneas)
+            svg.selectAll(".link")
+                .data(links)
+                .enter()
+                .append("path")
+                .attr("class", "link")
+                .attr("d", d => {
+                    // Coordenadas de origen y destino
+                    const sourceX = d.source.x + offsetX;
+                    const sourceY = d.source.y;
+                    const targetX = d.target.x + offsetX;
+                    const targetY = d.target.y - nodeHeight/2;
+                    
+                    // Dibujamos líneas en forma de T invertida
+                    return `
+                        M ${sourceX},${sourceY + nodeHeight/2}
+                        L ${sourceX},${(sourceY + targetY)/2}
+                        L ${targetX},${(sourceY + targetY)/2}
+                        L ${targetX},${targetY}
+                    `;
+                })
+
+            // Dibujamos los nodos
+            const nodeGroups = svg.selectAll(".node")
+                .data(nodes)
+                .enter()
+                .append("g")
+                .attr("class", "node")
+                .attr("transform", d => `translate(${d.x + offsetX - nodeWidth/2}, ${d.y - nodeHeight/2})`);
+
+            // Caja principal del nodo
+            nodeGroups.append("rect")
+                .attr("class", "node-box")
+                .attr("width", nodeWidth)
+                .attr("height", nodeHeight)
+                .attr("rx", 2)
+                .attr("ry", 2)
+                .attr("fill", d => d.data.color); // Aplicar el color guardado en la base de datos
+
+            // Caja para el icono de persona
+            nodeGroups.append("rect")
+                .attr("class", "node-person-box")
+                .attr("width", nodeHeight)
+                .attr("height", nodeHeight)
+                .attr("rx", 0)
+                .attr("ry", 0);
+
+            // Icono de persona (círculo blanco)
+            nodeGroups.append("circle")
+                .attr("class", "person-icon")
+                .attr("cx", nodeHeight/2)
+                .attr("cy", nodeHeight/2)
+                .attr("r", 10);
+
+            // Texto del nodo (nombre completo)
+            nodeGroups.append("text")
+                .attr("x", nodeHeight + (nodeWidth - nodeHeight)/2)
+                .attr("y", nodeHeight/2)
+                .attr("class", "node-title text-wrap")
+                .text(d => d.data.nombre); // Mostrar el nombre completo
+
+            // Botones de acciones (editar y eliminar)
+            nodeGroups.append("foreignObject")
+                .attr("width", nodeWidth)
+                .attr("height", 30)
+                .attr("x", 0)
+                .attr("y", nodeHeight + 5)
+                .attr("class", "no-print")
+                .append("xhtml:div")
+                .attr("class", "node-actions")
+                .html(d => `
+                    <button class="btn btn-sm btn-warning" onclick="editarNodo(${d.data.id})">Editar</button>
+                    <button class="btn btn-sm btn-danger" onclick="eliminarNodo(${d.data.id})">Eliminar</button>
+                `);
+            
+            // Ajustamos el tamaño del SVG
+            const svgNode = svg.node().parentNode;
+            const bbox = svgNode.getBBox();
+            const viewBox = [
+                bbox.x - 10, 
+                bbox.y - 10, 
+                bbox.width + 20, 
+                bbox.height + 20
+            ].join(" ");
+            
+            d3.select(svgNode)
+                .attr("viewBox", viewBox)
+                .attr("width", "100%")
+                .attr("height", bbox.height + 40);
+        }
+        
+        // Cargar la lista de organigramas al inicio
+        window.onload = mostrarListaOrganigramas;
+    </script>
+</body>
+</html>
